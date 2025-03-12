@@ -16,7 +16,7 @@ pipeline {
                 withCredentials([string(credentialsId: 'aasmin', variable: 'GITHUB_TOKEN')]) {
                     sh '''
                     echo "Cloning repository..."
-                    git clone https://$GITHUB_TOKEN@github.com/
+                    git clone https://$GITHUB_TOKEN@github.com/Aasminjainab/todolist.git
                     '''
                 }
             }
