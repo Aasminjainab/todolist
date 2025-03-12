@@ -3,9 +3,9 @@ pipeline {
 
     environment {
         AWS_ACCOUNT_ID = '571600845308'
-        AWS_REGION = 'eu-north-1'
+        AWS_REGION = 'ap-south-1'
         EC2_USER = 'ubuntu'
-        EC2_HOST = '52.23.170.248'
+        EC2_HOST = '3.110.51.85'
         APP_DIR = '/home/ubuntu/todo-app'
         PYTHON_BIN = '/usr/bin/python3'
     }
@@ -13,10 +13,10 @@ pipeline {
     stages {
         stage('Clone Repository') {
             steps {
-                withCredentials([string(credentialsId: 'git-repo-token', variable: 'GITHUB_TOKEN')]) {
+                withCredentials([string(credentialsId: 'aasmin', variable: 'GITHUB_TOKEN')]) {
                     sh '''
                     echo "Cloning repository..."
-                    git clone https://$GITHUB_TOKEN@github.com/Gayathri-Musham-07/to-do-list-practise.git
+                    git clone https://$GITHUB_TOKEN@github.com/
                     '''
                 }
             }
