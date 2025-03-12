@@ -2,8 +2,8 @@ pipeline {
     agent { label 'docker-agent-label' }
 
     environment {
-        AWS_ACCOUNT_ID = '043309327282'
-        AWS_REGION = 'ap-south-1'
+        AWS_ACCOUNT_ID = '571600845308'
+        AWS_REGION = 'eu-north-1'
         EC2_USER = 'ubuntu'
         EC2_HOST = '52.23.170.248'
         APP_DIR = '/home/ubuntu/todo-app'
