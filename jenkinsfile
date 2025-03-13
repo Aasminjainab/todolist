@@ -6,26 +6,29 @@ pipeline {
         AWS_REGION = 'ap-south-1'
         EC2_USER = 'ubuntu'
         EC2_HOST = '3.110.51.85'
-        APP_DIR = '/home/ubuntu/todo-app'
+        // Set APP_DIR to the directory containing manage.py
+        APP_DIR = '/home/ubuntu/todo-app/to-do-list-practise-main'
         PYTHON_BIN = '/usr/bin/python3'
     }
 
     stages {
         stage('Clone Repository') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'Aasminjainab', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                withCredentials([usernamePassword(credentialsId: 'Aasminjainab', 
+                                                    usernameVariable: 'GIT_USER', 
+                                                    passwordVariable: 'GIT_TOKEN')]) {
                     sh '''
-                    echo "Checking if repository already exists..."
-                    if [ -d "to-do-list-practise-main/.git" ]; then
-                        echo "Repository exists. Cleaning up and pulling latest changes..."
-                        cd to-do-list-practise-main
-                        git reset --hard
-                        git pull origin main
-                    else
-                        echo "Cloning repository..."
-                        rm -rf to-do-list-practise-main
-                        git clone https://$GIT_USER:$GIT_TOKEN@github.com/Aasminjainab/todolist.git to-do-list-practise-main
-                    fi
+                        echo "Checking if repository already exists..."
+                        if [ -d "to-do-list-practise-main/.git" ]; then
+                            echo "Repository exists. Cleaning up and pulling latest changes..."
+                            cd to-do-list-practise-main
+                            git reset --hard
+                            git pull origin main
+                        else
+                            echo "Cloning repository..."
+                            rm -rf to-do-list-practise-main
+                            git clone https://$GIT_USER:$GIT_TOKEN@github.com/Aasminjainab/todolist.git to-do-list-practise-main
+                        fi
                     '''
                 }
             }
@@ -34,15 +37,15 @@ pipeline {
         stage('Run Pylint Checks') {
             steps {
                 sh '''
-                echo "Running Pylint Checks..."
-                if [ -f "to-do-list-practise-main/pylint.sh" ]; then
-                    chmod +x to-do-list-practise-main/pylint.sh
-                    cd to-do-list-practise-main
-                    ./pylint.sh || { echo "Pylint checks failed!"; exit 1; }
-                else
-                    echo "Error: pylint.sh not found!"
-                    exit 1
-                fi
+                    echo "Running Pylint Checks..."
+                    if [ -f "to-do-list-practise-main/pylint.sh" ]; then
+                        chmod +x to-do-list-practise-main/pylint.sh
+                        cd to-do-list-practise-main
+                        ./pylint.sh || { echo "Pylint checks failed!"; exit 1; }
+                    else
+                        echo "Error: pylint.sh not found!"
+                        exit 1
+                    fi
                 '''
             }
         }
@@ -51,8 +54,8 @@ pipeline {
             steps {
                 sshagent(['ubuntu']) {
                     sh '''
-                    echo "Ensuring application directory exists on EC2..."
-                    ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "sudo mkdir -p $APP_DIR && sudo chown ubuntu:ubuntu $APP_DIR && chmod 755 $APP_DIR"
+                        echo "Ensuring application directory exists on EC2..."
+                        ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "sudo mkdir -p $APP_DIR && sudo chown ubuntu:ubuntu $APP_DIR && chmod 755 $APP_DIR"
                     '''
                 }
             }
@@ -62,37 +65,32 @@ pipeline {
             steps {
                 sshagent(['ubuntu']) {
                     sh '''
-                    echo "Transferring application files to EC2..."
-                    rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" to-do-list-practise-main/ $EC2_USER@$EC2_HOST:$APP_DIR
+                        echo "Transferring application files to EC2..."
+                        rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" to-do-list-practise-main/ $EC2_USER@$EC2_HOST:$APP_DIR
 
-                    echo "Deploying application on EC2..."
-                    ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
-                    set -e  # Exit script on error
+                        echo "Deploying Django application on EC2..."
+                        ssh -tt -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST bash -c "
+                        set -e
+                        cd $APP_DIR
 
-                    cd "$APP_DIR"
+                        # Verify manage.py exists
+                        if [ -f manage.py ]; then
+                            echo 'Found manage.py, running migrations...'
+                            python3 manage.py migrate
+                            echo 'Collecting static files...'
+                            python3 manage.py collectstatic --noinput
+                            
+                            echo 'Restarting Django server if already running...'
+                            pkill -f 'manage.py runserver' || echo 'No existing Django process found.'
 
-                    # Ensure virtual environment exists
-                    if [ ! -d "venv" ]; then
-                        echo "Creating virtual environment..."
-                        $PYTHON_BIN -m venv venv
-                    fi
-
-                    source venv/bin/activate
-
-                    echo "Installing dependencies..."
-                    pip install --upgrade pip
-                    if [ -f "requirements.txt" ]; then
-                        pip install -r requirements.txt
-                    fi
-
-                    echo "Restarting Uvicorn if already running..."
-                    pkill -f "uvicorn" || echo "No existing Uvicorn process found."
-
-                    echo "Starting Uvicorn..."
-                    nohup uvicorn todoApp.asgi:application --host 0.0.0.0 --port 8000 > app.log 2>&1 &
-                    
-                    echo "Deployment Successful!"
-EOF
+                            echo 'Starting Django server...'
+                            nohup python3 manage.py runserver 0.0.0.0:8000 > app.log 2>&1 &
+                        else
+                            echo 'Error: manage.py not found. Check project structure.'
+                            exit 1
+                        fi
+                        "
+                        echo "Deployment Successful!"
                     '''
                 }
             }
