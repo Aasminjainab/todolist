@@ -8,6 +8,7 @@ pipeline {
         EC2_HOST = '3.110.51.85'
         APP_DIR = '/home/ubuntu/todo-app/to-do-list-practise-main'
         PYTHON_BIN = '/usr/bin/python3' 
+
         VENV_DIR = '/home/ubuntu/todo-app/venv' 
     }
 
