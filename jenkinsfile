@@ -69,10 +69,10 @@ pipeline {
                         rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" to-do-list-practise-main/ $EC2_USER@$EC2_HOST:$APP_DIR
 
                         echo "Deploying Django application on EC2..."
-                        ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST /bin/bash << EOF
+                        ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST /bin/bash << 'EOF'
                         set -e
-                        export APP_DIR=/home/ubuntu/todo-app/to-do-list-practise-main
-                        export VENV_DIR=/home/ubuntu/todo-app/venv
+                        APP_DIR=/home/ubuntu/todo-app/to-do-list-practise-main
+                        VENV_DIR=/home/ubuntu/todo-app/venv
                         echo "APP_DIR: $APP_DIR"
                         echo "VENV_DIR: $VENV_DIR"
                         cd $APP_DIR
@@ -89,16 +89,13 @@ pipeline {
 
                         # Activate virtual environment and verify
                         . "$VENV_DIR/bin/activate" || source "$VENV_DIR/bin/activate"
-                        echo "Using Python: \$(which python)"
-                        echo "Using pip: \$(which pip)"
+                        echo "Using Python: $(which python)"
+                        echo "Using pip: $(which pip)"
 
                         # Upgrade pip
                         pip install --upgrade pip
 
-                        # Check and install Django
-                        pip list | grep -i django || pip install django
-
-                        # Check if requirements.txt exists before installing dependencies
+                        # Install dependencies if requirements.txt exists
                         if [ -f requirements.txt ]; then
                             echo "Installing dependencies from requirements.txt..."
                             pip install -r requirements.txt
@@ -109,15 +106,15 @@ pipeline {
                         # Ensure manage.py exists
                         if [ -f manage.py ]; then
                             echo "Found manage.py, running migrations..."
-                            "$VENV_DIR/bin/python" manage.py migrate
+                            python manage.py migrate
                             echo "Collecting static files..."
-                            "$VENV_DIR/bin/python" manage.py collectstatic --noinput
-                            
+                            python manage.py collectstatic --noinput
+
                             echo "Restarting Django server if already running..."
                             fuser -k 8000/tcp || echo "No process running on port 8000"
 
                             echo "Starting Django server..."
-                            nohup "$VENV_DIR/bin/python" manage.py runserver 0.0.0.0:8000 > app.log 2>&1 &
+                            nohup python manage.py runserver 0.0.0.0:8000 > app.log 2>&1 &
                         else
                             echo "Error: manage.py not found. Check project structure."
                             exit 1
