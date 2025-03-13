@@ -69,8 +69,10 @@ pipeline {
                         rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" to-do-list-practise-main/ $EC2_USER@$EC2_HOST:$APP_DIR
 
                         echo "Deploying Django application on EC2..."
-                        ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST /bin/bash << 'EOF'
+                        ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST /bin/bash << EOF
                         set -e
+                        export APP_DIR=/home/ubuntu/todo-app/to-do-list-practise-main
+                        export VENV_DIR=/home/ubuntu/todo-app/venv
                         echo "APP_DIR: $APP_DIR"
                         echo "VENV_DIR: $VENV_DIR"
                         cd $APP_DIR
@@ -86,7 +88,7 @@ pipeline {
                         fi
 
                         # Activate virtual environment and verify
-                        source "$VENV_DIR/bin/activate"
+                        . "$VENV_DIR/bin/activate" || source "$VENV_DIR/bin/activate"
                         echo "Using Python: \$(which python)"
                         echo "Using pip: \$(which pip)"
 
@@ -94,7 +96,7 @@ pipeline {
                         pip install --upgrade pip
 
                         # Check and install Django
-                        pip list | grep django || pip install django
+                        pip list | grep -i django || pip install django
 
                         # Check if requirements.txt exists before installing dependencies
                         if [ -f requirements.txt ]; then
@@ -112,7 +114,7 @@ pipeline {
                             "$VENV_DIR/bin/python" manage.py collectstatic --noinput
                             
                             echo "Restarting Django server if already running..."
-                            pkill -f 'manage.py runserver' || echo "No existing Django process found."
+                            fuser -k 8000/tcp || echo "No process running on port 8000"
 
                             echo "Starting Django server..."
                             nohup "$VENV_DIR/bin/python" manage.py runserver 0.0.0.0:8000 > app.log 2>&1 &
