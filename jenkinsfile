@@ -69,7 +69,7 @@ pipeline {
                         rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" to-do-list-practise-main/ $EC2_USER@$EC2_HOST:$APP_DIR
 
                         echo "Deploying Django application on EC2..."
-                        ssh -tt -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST bash -c "
+                        ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
                         set -e
                         cd $APP_DIR
 
@@ -118,7 +118,7 @@ pipeline {
                             echo 'Error: manage.py not found. Check project structure.'
                             exit 1
                         fi
-                        "
+                        EOF
                         echo "Deployment Successful!"
                     '''
                 }
