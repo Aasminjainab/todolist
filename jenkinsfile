@@ -51,7 +51,7 @@ pipeline {
 
         stage('Ensure Application Directory on EC2') {
             steps {
-                sshagent(['858d053b-55ec-4c46-9cb6-22f757cae15c']) {
+                sshagent(['ubuntu']) {
                     sh '''
                     echo "Ensuring application directory exists on EC2..."
                     ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "mkdir -p $APP_DIR && chmod 755 $APP_DIR"
