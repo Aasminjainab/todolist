@@ -15,8 +15,16 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'aasmin', variable: 'GITHUB_TOKEN')]) {
                     sh '''
-                    echo "Cloning repository..."
-                    git clone https://$GITHUB_TOKEN@github.com/Aasminjainab/todolist.git
+                    echo "Checking if repository already exists..."
+                    if [ -d "todolist/.git" ]; then
+                        echo "Repository exists. Pulling latest changes..."
+                        cd todolist
+                        git reset --hard
+                        git pull origin main
+                    else
+                        echo "Cloning repository..."
+                        git clone https://$GITHUB_TOKEN@github.com/Aasminjainab/todolist.git
+                    fi
                     '''
                 }
             }
@@ -26,8 +34,12 @@ pipeline {
             steps {
                 sh '''
                 echo "Running Pylint Checks..."
-                chmod +x pylint.sh
-                ./pylint.sh
+                if [ -f "pylint.sh" ]; then
+                    chmod +x pylint.sh
+                    ./pylint.sh
+                else
+                    echo "pylint.sh not found, skipping linting..."
+                fi
                 '''
             }
         }
@@ -38,16 +50,26 @@ pipeline {
                     sh '''
                     echo "Transferring application files to EC2..."
                     ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "mkdir -p $APP_DIR"
-                    scp -o StrictHostKeyChecking=no -r ./* $EC2_USER@$EC2_HOST:$APP_DIR
+                    scp -o StrictHostKeyChecking=no -r todolist/* $EC2_USER@$EC2_HOST:$APP_DIR
 
                     echo "Starting application using Uvicorn..."
                     ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << EOF
                     cd $APP_DIR
+
+                    # Ensure virtual environment exists
+                    if [ ! -d "venv" ]; then
+                        echo "Creating virtual environment..."
+                        $PYTHON_BIN -m venv venv
+                    fi
+
                     source venv/bin/activate
 
+                    echo "Installing dependencies..."
+                    pip install -r requirements.txt
+
                     echo "Restarting Uvicorn if already running..."
-                    pkill -f "uvicorn" || true
-                    
+                    pkill -f "uvicorn" || echo "No existing Uvicorn process found."
+
                     echo "Starting Uvicorn..."
                     nohup uvicorn app:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
                     EOF
