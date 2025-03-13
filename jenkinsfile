@@ -16,14 +16,14 @@ pipeline {
                 withCredentials([string(credentialsId: 'aasmin', variable: 'GITHUB_TOKEN')]) {
                     sh '''
                     echo "Checking if repository already exists..."
-                    if [ -d "todolist/.git" ]; then
+                    if [ -d "to-do-list-practise-main/.git" ]; then
                         echo "Repository exists. Pulling latest changes..."
-                        cd todolist
+                        cd to-do-list-practise-main
                         git reset --hard
                         git pull origin main
                     else
                         echo "Cloning repository..."
-                        git clone https://$GITHUB_TOKEN@github.com/Aasminjainab/todolist.git
+                        git clone https://$GITHUB_TOKEN@github.com/Aasminjainab/todolist.git to-do-list-practise-main
                     fi
                     '''
                 }
@@ -34,13 +34,26 @@ pipeline {
             steps {
                 sh '''
                 echo "Running Pylint Checks..."
-                if [ -f "pylint.sh" ]; then
-                    chmod +x pylint.sh
+                if [ -f "to-do-list-practise-main/pylint.sh" ]; then
+                    chmod +x to-do-list-practise-main/pylint.sh
+                    cd to-do-list-practise-main
                     ./pylint.sh
                 else
-                    echo "pylint.sh not found, skipping linting..."
+                    echo "Error: pylint.sh not found!"
+                    exit 1
                 fi
                 '''
+            }
+        }
+
+        stage('Ensure Application Directory on EC2') {
+            steps {
+                sshagent(['858d053b-55ec-4c46-9cb6-22f757cae15c']) {
+                    sh '''
+                    echo "Ensuring application directory exists on EC2..."
+                    ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "mkdir -p $APP_DIR"
+                    '''
+                }
             }
         }
 
@@ -49,8 +62,7 @@ pipeline {
                 sshagent(['858d053b-55ec-4c46-9cb6-22f757cae15c']) {
                     sh '''
                     echo "Transferring application files to EC2..."
-                    ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "mkdir -p $APP_DIR"
-                    scp -o StrictHostKeyChecking=no -r todolist/* $EC2_USER@$EC2_HOST:$APP_DIR
+                    scp -o StrictHostKeyChecking=no -r to-do-list-practise-main/* $EC2_USER@$EC2_HOST:$APP_DIR
 
                     echo "Starting application using Uvicorn..."
                     ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << EOF
@@ -71,7 +83,7 @@ pipeline {
                     pkill -f "uvicorn" || echo "No existing Uvicorn process found."
 
                     echo "Starting Uvicorn..."
-                    nohup uvicorn app:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
+                    nohup uvicorn todoApp.wsgi:application --host 0.0.0.0 --port 8000 > app.log 2>&1 &
                     EOF
                     '''
                 }
