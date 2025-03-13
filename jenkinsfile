@@ -7,8 +7,8 @@ pipeline {
         EC2_USER = 'ubuntu'
         EC2_HOST = '3.110.51.85'
         APP_DIR = '/home/ubuntu/todo-app/to-do-list-practise-main'
-        PYTHON_BIN = '/usr/bin/python3' // Updated in case it's different in EC2
-        VENV_DIR = '/home/ubuntu/todo-app/venv' // Define virtual environment path
+        PYTHON_BIN = '/usr/bin/python3' 
+        VENV_DIR = '/home/ubuntu/todo-app/venv' 
     }
 
     stages {
@@ -79,19 +79,25 @@ pipeline {
 
                         # Set up virtual environment if not exists
                         if [ ! -d '$VENV_DIR' ]; then
+                            echo 'Creating virtual environment...'
                             python3 -m venv $VENV_DIR
                         fi
 
                         # Activate virtual environment
                         source $VENV_DIR/bin/activate
 
-                        # Install dependencies
+                        # Upgrade pip
                         pip install --upgrade pip
-                        if [ -f requirements.txt ]; then
-                          echo 'Installing dependencies from requirements.txt...'
-                          pip install -r requirements.txt
 
-                        # Verify manage.py exists
+                        # Check if requirements.txt exists before installing dependencies
+                        if [ -f requirements.txt ]; then
+                            echo 'Installing dependencies from requirements.txt...'
+                            pip install -r requirements.txt
+                        else
+                            echo 'Warning: requirements.txt not found! Skipping dependency installation.'
+                        fi
+
+                        # Ensure manage.py exists
                         if [ -f manage.py ]; then
                             echo 'Found manage.py, running migrations...'
                             python manage.py migrate
