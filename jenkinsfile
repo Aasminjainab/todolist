@@ -11,6 +11,7 @@ pipeline {
         VENV_DIR = '/home/ubuntu/todo-app/venv' 
     }
 
+
     stages {
         stage('Clone Repository') {
             steps {
