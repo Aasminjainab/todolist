@@ -6,15 +6,19 @@ pipeline {
         AWS_REGION = 'ap-south-1'
         EC2_USER = 'ubuntu'
         EC2_HOST = '3.110.51.85'
+        // Set APP_DIR to the directory containing manage.py
         APP_DIR = '/home/ubuntu/todo-app/to-do-list-practise-main'
-        VENV_DIR = '/home/ubuntu/todo-app/to-do-list-practise-main/venv'  // Updated to correct venv path
+        // VENV_DIR is the directory for the virtual environment
+        VENV_DIR = '/home/ubuntu/todo-app/to-do-list-practise-main/venv'
         GIT_REPO = 'https://github.com/Aasminjainab/todolist.git'
     }
 
     stages {
         stage('Clone Repository') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'Aasminjainab', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                withCredentials([usernamePassword(credentialsId: 'Aasminjainab', 
+                                                    usernameVariable: 'GIT_USER', 
+                                                    passwordVariable: 'GIT_TOKEN')]) {
                     sh '''
                         if [ -d "to-do-list-practise-main/.git" ]; then
                             cd to-do-list-practise-main
@@ -59,10 +63,10 @@ pipeline {
                     sh '''
                         rsync -avz -e "ssh -o StrictHostKeyChecking=no" to-do-list-practise-main/ $EC2_USER@$EC2_HOST:$APP_DIR
 
-                        ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST /bin/bash << 'EOF'
+                        ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST /bin/bash << EOF
                         set -e
                         
-                        cd $APP_DIR
+                        cd "$APP_DIR"
                         sudo apt update
                         sudo apt install -y python3 python3-pip python3-venv
 
@@ -75,18 +79,26 @@ pipeline {
 
                         if [ -f requirements.txt ]; then
                             pip install -r requirements.txt
+                        else
+                            echo "requirements.txt not found, skipping dependency installation."
                         fi
 
                         if [ -f manage.py ]; then
+                            echo "Running migrations..."
                             python manage.py migrate
+                            echo "Collecting static files..."
                             python manage.py collectstatic --noinput
+                            
+                            echo "Killing any process on port 8000..."
                             fuser -k 8000/tcp || true
+
+                            echo "Starting Django server..."
                             nohup python manage.py runserver 0.0.0.0:8000 > app.log 2>&1 &
                         else
-                            echo "Error: manage.py not found"
+                            echo "Error: manage.py not found. Check project structure."
                             exit 1
                         fi
-                        EOF
+EOF
                     '''
                 }
             }
