@@ -17,12 +17,13 @@ pipeline {
                     sh '''
                     echo "Checking if repository already exists..."
                     if [ -d "to-do-list-practise-main/.git" ]; then
-                        echo "Repository exists. Pulling latest changes..."
+                        echo "Repository exists. Cleaning up and pulling latest changes..."
                         cd to-do-list-practise-main
                         git reset --hard
                         git pull origin main
                     else
                         echo "Cloning repository..."
+                        rm -rf to-do-list-practise-main  # Ensure clean slate if partial clone exists
                         git clone https://$GITHUB_TOKEN@github.com/Aasminjainab/todolist.git to-do-list-practise-main
                     fi
                     '''
@@ -37,7 +38,7 @@ pipeline {
                 if [ -f "to-do-list-practise-main/pylint.sh" ]; then
                     chmod +x to-do-list-practise-main/pylint.sh
                     cd to-do-list-practise-main
-                    ./pylint.sh
+                    ./pylint.sh || { echo "Pylint checks failed!"; exit 1; }
                 else
                     echo "Error: pylint.sh not found!"
                     exit 1
@@ -51,7 +52,7 @@ pipeline {
                 sshagent(['858d053b-55ec-4c46-9cb6-22f757cae15c']) {
                     sh '''
                     echo "Ensuring application directory exists on EC2..."
-                    ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "mkdir -p $APP_DIR"
+                    ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "mkdir -p $APP_DIR && chmod 755 $APP_DIR"
                     '''
                 }
             }
@@ -62,10 +63,10 @@ pipeline {
                 sshagent(['858d053b-55ec-4c46-9cb6-22f757cae15c']) {
                     sh '''
                     echo "Transferring application files to EC2..."
-                    scp -o StrictHostKeyChecking=no -r to-do-list-practise-main/* $EC2_USER@$EC2_HOST:$APP_DIR
+                    rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" to-do-list-practise-main/ $EC2_USER@$EC2_HOST:$APP_DIR
 
-                    echo "Starting application using Uvicorn..."
-                    ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << EOF
+                    echo "Deploying application on EC2..."
+                    ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
                     cd $APP_DIR
 
                     # Ensure virtual environment exists
@@ -77,13 +78,16 @@ pipeline {
                     source venv/bin/activate
 
                     echo "Installing dependencies..."
-                    pip install -r requirements.txt
+                    pip install --upgrade pip
+                    if [ -f "requirements.txt" ]; then
+                        pip install -r requirements.txt
+                    fi
 
                     echo "Restarting Uvicorn if already running..."
                     pkill -f "uvicorn" || echo "No existing Uvicorn process found."
 
                     echo "Starting Uvicorn..."
-                    nohup uvicorn todoApp.wsgi:application --host 0.0.0.0 --port 8000 > app.log 2>&1 &
+                    nohup uvicorn todoApp.asgi:application --host 0.0.0.0 --port 8000 > app.log 2>&1 &
                     EOF
                     '''
                 }
