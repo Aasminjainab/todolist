@@ -10,10 +10,6 @@ pipeline {
         PYTHON_BIN = '/usr/bin/python3'
     }
 
-
-
-
-
     stages {
         stage('Clone Repository') {
             steps {
@@ -27,11 +23,10 @@ pipeline {
                         git pull origin main
                     else
                         echo "Cloning repository..."
-                        rm -rf to-do-list-practise-main  # Ensure clean slate if partial clone exists
-                        git clone https://$GITHUB_TOKEN@github.com/Aasminjainab/todolist.git to-do-list-practise-main
+                        rm -rf to-do-list-practise-main
+                        git clone https://$GIT_USER:$GIT_TOKEN@github.com/Aasminjainab/todolist.git to-do-list-practise-main
                     fi
                     '''
-
                 }
             }
         }
@@ -57,7 +52,7 @@ pipeline {
                 sshagent(['ubuntu']) {
                     sh '''
                     echo "Ensuring application directory exists on EC2..."
-                    ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "mkdir -p $APP_DIR && chmod 755 $APP_DIR"
+                    ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "sudo mkdir -p $APP_DIR && sudo chown ubuntu:ubuntu $APP_DIR && chmod 755 $APP_DIR"
                     '''
                 }
             }
@@ -71,9 +66,10 @@ pipeline {
                     rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" to-do-list-practise-main/ $EC2_USER@$EC2_HOST:$APP_DIR
 
                     echo "Deploying application on EC2..."
-                    ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
-                    cd $APP_DIR
+                    ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST bash <<EOF
+                    set -e  # Exit script on error
 
+                    cd "$APP_DIR"
 
                     # Ensure virtual environment exists
                     if [ ! -d "venv" ]; then
@@ -94,6 +90,8 @@ pipeline {
 
                     echo "Starting Uvicorn..."
                     nohup uvicorn todoApp.asgi:application --host 0.0.0.0 --port 8000 > app.log 2>&1 &
+
+                    echo "Deployment Successful!"
                     EOF
                     '''
                 }
