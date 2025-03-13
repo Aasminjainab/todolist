@@ -6,7 +6,7 @@ pipeline {
         AWS_REGION = 'ap-south-1'
         EC2_USER = 'ubuntu'
         EC2_HOST = '3.110.51.85'
-        APP_DIR = '/home/ubuntu/todo-app'
+        APP_DIR = '/home/ubuntu/todo-app/to-do-list-practise-main'
         PYTHON_BIN = '/usr/bin/python3'
     }
 
@@ -86,13 +86,16 @@ pipeline {
                     fi
 
                     echo "Applying database migrations..."
-                    python manage.py migrate
+                    python $APP_DIR/manage.py migrate
+
+                    echo "Collecting static files..."
+                    python $APP_DIR/manage.py collectstatic --noinput
 
                     echo "Restarting Django server if already running..."
                     pkill -f "manage.py runserver" || echo "No existing Django process found."
 
                     echo "Starting Django application..."
-                    nohup python manage.py runserver 0.0.0.0:8000 > app.log 2>&1 &
+                    nohup python $APP_DIR/manage.py runserver 0.0.0.0:8000 > app.log 2>&1 &
 
                     echo "Deployment Successful!"
 EOF
