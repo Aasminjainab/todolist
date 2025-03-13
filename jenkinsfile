@@ -57,7 +57,7 @@ pipeline {
             steps {
                 sshagent(['ubuntu']) {
                     sh '''
-                        rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" to-do-list-practise-main/ $EC2_USER@$EC2_HOST:$APP_DIR
+                        rsync -avz -e "ssh -o StrictHostKeyChecking=no" to-do-list-practise-main/ $EC2_USER@$EC2_HOST:$APP_DIR
 
                         ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST /bin/bash << 'EOF'
                         set -e
