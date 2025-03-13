@@ -60,7 +60,7 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                sshagent(['858d053b-55ec-4c46-9cb6-22f757cae15c']) {
+                sshagent(['ubuntu']) {
                     sh '''
                     echo "Transferring application files to EC2..."
                     rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" to-do-list-practise-main/ $EC2_USER@$EC2_HOST:$APP_DIR
