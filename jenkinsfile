@@ -15,7 +15,7 @@ pipeline {
     stages {
         stage('Clone Repository') {
             steps {
-                withCredentials([string(credentialsId: 'Aasminjainab', variable: 'GITHUB_TOKEN')]) {
+               withCredentials([usernamePassword(credentialsId: 'Aasminjainab', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASSWORD')]) {
                     sh '''
                     echo "Checking if repository already exists..."
                     if [ -d "to-do-list-practise-main/.git" ]; then
