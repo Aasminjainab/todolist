@@ -86,7 +86,7 @@ pipeline {
                     fi
 
                     echo "Applying database migrations..."
-                    python $APP_DIR/manage.py migrate
+                    $APP_DIR/venv/bin/python $APP_DIR/manage.py migrate
 
                     echo "Collecting static files..."
                     python $APP_DIR/manage.py collectstatic --noinput
