@@ -66,7 +66,7 @@ pipeline {
                     rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" to-do-list-practise-main/ $EC2_USER@$EC2_HOST:$APP_DIR
 
                     echo "Deploying application on EC2..."
-                    ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST bash <<EOF
+                    ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
                     set -e  # Exit script on error
 
                     cd "$APP_DIR"
@@ -90,9 +90,9 @@ pipeline {
 
                     echo "Starting Uvicorn..."
                     nohup uvicorn todoApp.asgi:application --host 0.0.0.0 --port 8000 > app.log 2>&1 &
-
+                    
                     echo "Deployment Successful!"
-                    EOF
+EOF
                     '''
                 }
             }
