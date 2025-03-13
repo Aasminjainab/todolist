@@ -69,7 +69,7 @@ pipeline {
                         rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" to-do-list-practise-main/ $EC2_USER@$EC2_HOST:$APP_DIR
 
                         echo "Deploying Django application on EC2..."
-                        ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST /bin/bash << EOF
+                        ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST /bin/bash << 'EOF'
                         set -e
                         echo "APP_DIR: $APP_DIR"
                         echo "VENV_DIR: $VENV_DIR"
