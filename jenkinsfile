@@ -85,12 +85,15 @@ pipeline {
                         pip install -r requirements.txt
                     fi
 
-                    echo "Restarting Uvicorn if already running..."
-                    pkill -f "uvicorn" || echo "No existing Uvicorn process found."
+                    echo "Applying database migrations..."
+                    python manage.py migrate
 
-                    echo "Starting Uvicorn..."
-                    nohup uvicorn todoApp.asgi:application --host 0.0.0.0 --port 8000 > app.log 2>&1 &
-                    
+                    echo "Restarting Django server if already running..."
+                    pkill -f "manage.py runserver" || echo "No existing Django process found."
+
+                    echo "Starting Django application..."
+                    nohup python manage.py runserver 0.0.0.0:8000 > app.log 2>&1 &
+
                     echo "Deployment Successful!"
 EOF
                     '''
