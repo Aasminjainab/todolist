@@ -5,7 +5,7 @@ pipeline {
         AWS_ACCOUNT_ID = '043309327282'
         AWS_REGION = 'ap-south-1'
         EC2_USER = 'ubuntu'
-        EC2_HOST = '3.110.51.85'
+        EC2_HOST = '35.154.250.112'
         APP_DIR = '/home/ubuntu/todo-app/to-do-list-practise-main'
         VENV_DIR = '/home/ubuntu/todo-app/to-do-list-practise-main/venv'
         GIT_REPO = 'https://github.com/Aasminjainab/todolist.git'
