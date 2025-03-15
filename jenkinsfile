@@ -9,6 +9,9 @@ pipeline {
         APP_DIR = '/home/ubuntu/todo-app/to-do-list-practise-main'
         VENV_DIR = '/home/ubuntu/todo-app/to-do-list-practise-main/venv'
         GIT_REPO = 'https://github.com/Aasminjainab/todolist.git'
+        ECR_REPO = '043309327282.dkr.ecr.ap-south-1.amazonaws.com/todo/app'
+        DOCKER_IMAGE = 'todo-app'
+        DOCKER_TAG = 'latest'
     }
 
     stages {
@@ -44,24 +47,22 @@ pipeline {
                 '''
             }
         }
+
         stage('Build and Push Docker Image to ECR') {
             steps {
                 script {
-                    def ecrRepo = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/todo-app"
-                    def dockerTag = "latest"
-                    
                     sh '''
-                        # Authenticate Docker to AWS ECR
-                        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                        # Authenticate Docker with AWS ECR
+                        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
 
                         # Build Docker Image
-                        docker build -t todo-app:latest to-do-list-practise-main
+                        docker build -t $DOCKER_IMAGE:latest to-do-list-practise-main
 
-                        # Tag the Docker image for ECR
-                        docker tag todo-app:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/todo-app:$dockerTag
+                        # Tag the image for ECR
+                        docker tag $DOCKER_IMAGE:latest $ECR_REPO:$DOCKER_TAG
 
-                        # Push the Docker image to ECR
-                        docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/todo-app:$dockerTag
+                        # Push image to ECR
+                        docker push $ECR_REPO:$DOCKER_TAG
                     '''
                 }
             }
@@ -85,59 +86,21 @@ pipeline {
             steps {
                 sshagent(['ubuntu']) {
                     sh '''
-                        rsync -avz -e "ssh -o StrictHostKeyChecking=no" to-do-list-practise-main/ $EC2_USER@$EC2_HOST:$APP_DIR
-
                         ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST /bin/bash << EOF
                         set -e
-                        
-                        cd "$APP_DIR"
-                        sudo apt update
-                        sudo apt install -y python3 python3-pip python3-venv
 
-                        # Create virtual environment if not exists
-                        if [ ! -d "$VENV_DIR" ]; then
-                            echo "Creating virtual environment..."
-                            python3 -m venv "$VENV_DIR"
-                        fi
+                        # Authenticate Docker on EC2
+                        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
 
-                        source "$VENV_DIR/bin/activate"
+                        # Pull the latest Docker image
+                        docker pull $ECR_REPO:$DOCKER_TAG
 
-                        # Upgrade pip
-                        echo "Upgrading pip..."
-                        $VENV_DIR/bin/python -m ensurepip --default-pip
-                        $VENV_DIR/bin/pip install --upgrade pip
+                        # Stop and remove any existing container
+                        docker stop todo-app-container || true
+                        docker rm todo-app-container || true
 
-                        # Install dependencies if requirements.txt exists
-                        if [ -f "$APP_DIR/requirements.txt" ]; then
-                            echo "Installing dependencies..."
-                            $VENV_DIR/bin/pip install -r "$APP_DIR/requirements.txt"
-                        else
-                            echo "Warning: requirements.txt not found!"
-                        fi
-
-                        # Verify Django installation
-                        if ! $VENV_DIR/bin/python -c "import django" 2>/dev/null; then
-                            echo "Error: Django is not installed! Exiting..."
-                            exit 1
-                        fi
-
-                        # Run Django commands only if manage.py exists
-                        if [ -f "$APP_DIR/manage.py" ]; then
-                            echo "Running migrations..."
-                            $VENV_DIR/bin/python manage.py migrate
-
-                            echo "Collecting static files..."
-                            $VENV_DIR/bin/python manage.py collectstatic --noinput
-
-                            echo "Killing any process on port 8000..."
-                            fuser -k 8000/tcp || true
-
-                            echo "Starting Django server..."
-                            nohup $VENV_DIR/bin/python manage.py runserver 0.0.0.0:8000 > app.log 2>&1 &
-                        else
-                            echo "Error: manage.py not found!"
-                            exit 1
-                        fi
+                        # Run new container with the latest image
+                        docker run -d -p 8000:8000 --name todo-app-container $ECR_REPO:$DOCKER_TAG
 EOF
                     '''
                 }
