@@ -90,6 +90,8 @@ pipeline {
             }
         }
 
+
+
         stage('Ensure EC2 Directory Exists') {
             steps {
                 sshagent(['ubuntu']) {
