@@ -20,16 +20,20 @@ pipeline {
                 sh '''
                     echo "Checking and Installing AWS CLI and Docker..."
 
-                    # Install AWS CLI if not found
-                    if ! command -v aws &> /dev/null; then
+                    # Check if AWS CLI is installed
+                    if command -v aws &> /dev/null; then
+                        echo "AWS CLI is already installed. Checking for updates..."
+                        sudo ./aws/install --update
+                    else
                         echo "Installing AWS CLI..."
                         curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
                         unzip awscliv2.zip
                         sudo ./aws/install
                         rm -rf awscliv2.zip aws
-                    else
-                        echo "AWS CLI is already installed."
                     fi
+
+                    # Verify AWS CLI installation
+                    aws --version || { echo "AWS CLI installation failed"; exit 1; }
 
                     # Install Docker if not found
                     if ! command -v docker &> /dev/null; then
