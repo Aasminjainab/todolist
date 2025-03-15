@@ -44,6 +44,28 @@ pipeline {
                 '''
             }
         }
+        stage('Build and Push Docker Image to ECR') {
+            steps {
+                script {
+                    def ecrRepo = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/todo-app"
+                    def dockerTag = "latest"
+                    
+                    sh '''
+                        # Authenticate Docker to AWS ECR
+                        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+                        # Build Docker Image
+                        docker build -t todo-app:latest to-do-list-practise-main
+
+                        # Tag the Docker image for ECR
+                        docker tag todo-app:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/todo-app:$dockerTag
+
+                        # Push the Docker image to ECR
+                        docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/todo-app:$dockerTag
+                    '''
+                }
+            }
+        }
 
         stage('Ensure EC2 Directory Exists') {
             steps {
