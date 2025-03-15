@@ -8,7 +8,7 @@ pipeline {
         EC2_HOST = '35.154.250.112'
         APP_DIR = '/home/ubuntu/todo-app/to-do-list-practise-main'
         VENV_DIR = '/home/ubuntu/todo-app/to-do-list-practise-main/venv'
-        GIT_REPO = 'github.com/Aasminjainab/todolist.git'
+        GIT_REPO = 'https://github.com/Aasminjainab/todolist.git'
         ECR_REPO = '043309327282.dkr.ecr.ap-south-1.amazonaws.com/todo/app'
         DOCKER_IMAGE = 'todo-app'
         DOCKER_TAG = 'latest'
@@ -24,17 +24,15 @@ pipeline {
                     echo "Checking and Installing AWS CLI and Docker..."
 
                     # Check if AWS CLI is installed
-                    if command -v aws &> /dev/null; then
-                        echo "AWS CLI is already installed. Checking for updates..."
-                        sudo ./aws/install --update
-                    else
-                        echo "Installing AWS CLI..."
-                        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-                        unzip awscliv2.zip
-                        sudo ./aws/install
-                        rm -rf awscliv2.zip aws
-                    fi
-
+                  if ! command -v aws &> /dev/null; then
+                    echo "Installing AWS CLI..."
+                    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                    unzip awscliv2.zip
+                    sudo ./aws/install
+                    rm -rf awscliv2.zip aws
+                 else
+                    echo "AWS CLI already installed."
+                 fi
                     # Verify AWS CLI installation
                     aws --version || { echo "AWS CLI installation failed"; exit 1; }
 
@@ -100,7 +98,7 @@ pipeline {
                         aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
 
                         echo "Building Docker Image..."
-                        docker build -t $DOCKER_IMAGE:latest to-do-list-practise-main
+                        docker build -t $DOCKER_IMAGE:latest ./to-do-list-practise-main
 
                         echo "Tagging Image for ECR..."
                         docker tag $DOCKER_IMAGE:latest $ECR_REPO:$DOCKER_TAG
@@ -144,7 +142,7 @@ pipeline {
                         docker rm todo-app-container || true
 
                         echo "Running New Container..."
-                        docker run -d -p 8000:8000 --name todo-app-container $ECR_REPO:$DOCKER_TAG
+                        docker run -d --restart=always -p 8000:8000 --name todo-app-container $ECR_REPO:$DOCKER_TAG
 EOF
                     '''
                 }
