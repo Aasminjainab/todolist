@@ -14,11 +14,25 @@ pipeline {
         DOCKER_TAG = 'latest'
     }
 
-
-
-
-
     stages {
+        stage('Setup Environment') {
+            steps {
+                sh '''
+                    echo "Checking and Installing AWS CLI and Docker..."
+                    if ! command -v aws &> /dev/null; then
+                        echo "AWS CLI not found! Installing..."
+                        sudo apt update && sudo apt install -y awscli
+                    fi
+                    if ! command -v docker &> /dev/null; then
+                        echo "Docker not found! Installing..."
+                        sudo apt install -y docker.io
+                        sudo systemctl start docker
+                        sudo systemctl enable docker
+                    fi
+                '''
+            }
+        }
+
         stage('Clone Repository') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'Aasminjainab', 
@@ -56,16 +70,16 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        # Authenticate Docker with AWS ECR
+                        echo "Authenticating with AWS ECR..."
                         aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
 
-                        # Build Docker Image
+                        echo "Building Docker Image..."
                         docker build -t $DOCKER_IMAGE:latest to-do-list-practise-main
 
-                        # Tag the image for ECR
+                        echo "Tagging Image for ECR..."
                         docker tag $DOCKER_IMAGE:latest $ECR_REPO:$DOCKER_TAG
 
-                        # Push image to ECR
+                        echo "Pushing Image to ECR..."
                         docker push $ECR_REPO:$DOCKER_TAG
                     '''
                 }
@@ -93,17 +107,17 @@ pipeline {
                         ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST /bin/bash << EOF
                         set -e
 
-                        # Authenticate Docker on EC2
+                        echo "Authenticating with AWS ECR on EC2..."
                         aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
 
-                        # Pull the latest Docker image
+                        echo "Pulling Latest Docker Image..."
                         docker pull $ECR_REPO:$DOCKER_TAG
 
-                        # Stop and remove any existing container
+                        echo "Stopping and Removing Old Containers..."
                         docker stop todo-app-container || true
                         docker rm todo-app-container || true
 
-                        # Run new container with the latest image
+                        echo "Running New Container..."
                         docker run -d -p 8000:8000 --name todo-app-container $ECR_REPO:$DOCKER_TAG
 EOF
                     '''
