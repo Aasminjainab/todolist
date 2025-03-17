@@ -6,8 +6,8 @@ pipeline {
         AWS_REGION = 'ap-south-1'
         EC2_USER = 'ubuntu'
         EC2_HOST = '35.154.250.112'
-        APP_DIR = '/home/ubuntu/todolist'  // ✅ Updated path to `todolist`
-        GIT_REPO = 'https://github.com/Aasminjanab/todolist.git'
+        APP_DIR = '/home/ubuntu/todolist'  // ✅ Fixed path
+        GIT_REPO = 'https://github.com/Aasminjainab/todolist.git'
         ECR_REPO = '043309327282.dkr.ecr.ap-south-1.amazonaws.com/my-todo'
         DOCKER_IMAGE = 'todo-app'
         DOCKER_TAG = 'latest'
@@ -22,13 +22,13 @@ pipeline {
                     if [ -d "todolist/.git" ]; then
                         echo "Repository exists. Pulling latest changes..."
                         cd todolist
-                        git remote set-url origin https://$GITHUB_TOKEN@github.com/Aasminjanab/todolist.git
+                        git remote set-url origin https://$GITHUB_TOKEN@github.com/Aasminjainab/todolist.git
                         git fetch origin main
                         git reset --hard origin/main
                         git pull origin main
                     else
                         echo "Cloning TO-DO LIST repository..."
-                        git clone https://$GITHUB_TOKEN@github.com/Aasminjanab/todolist.git
+                        git clone https://$GITHUB_TOKEN@github.com/Aasminjainab/todolist.git todolist
                     fi
                     '''
                 }
@@ -54,18 +54,7 @@ pipeline {
                 sh '''
                 echo "Building Docker Image..."
                 cd todolist  # ✅ Corrected directory
-
-                if [ ! -f Dockerfile ]; then
-                    echo "❌ Dockerfile not found in todolist! Exiting..."
-                    exit 1
-                fi
-                
-                if [ ! -f manage.py ]; then
-                    echo "❌ manage.py not found! Exiting..."
-                    exit 1
-                fi
-
-                docker build -t $DOCKER_IMAGE:$DOCKER_TAG -f Dockerfile .  # ✅ Ensured correct build path
+                docker build -t $DOCKER_IMAGE:$DOCKER_TAG -f Dockerfile .  # ✅ Ensure Dockerfile is here
                 docker tag $DOCKER_IMAGE:$DOCKER_TAG $ECR_REPO:$DOCKER_TAG
                 '''
             }
@@ -98,10 +87,10 @@ pipeline {
                     echo "Deploying on EC2..."
                     ssh -tt -o StrictHostKeyChecking=no -i $SSH_KEY $EC2_USER@$EC2_HOST bash -c "
                     set -e
-                    echo 'Stopping old container...'
+                    echo 'Checking for existing container...'
                     docker ps -q --filter 'name=todo-container' | grep -q . && docker stop todo-container && docker rm -f todo-container || echo 'No running container found.'
 
-                    echo 'Killing processes using port 8000...'
+                    echo 'Checking for processes using port 8000...'
                     sudo lsof -ti:8000 | xargs -r sudo kill -9 || echo 'No process found on port 8000.'
 
                     echo 'Pulling latest image from ECR...'
