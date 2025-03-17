@@ -1,5 +1,5 @@
 # Use official Python image as the base
-FROM python:3.9-slim
+FROM python:3.9
 
 # Install required system dependencies
 RUN apt update && apt install -y \
