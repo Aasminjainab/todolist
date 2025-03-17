@@ -13,26 +13,6 @@ pipeline {
         DOCKER_TAG = 'latest'
     }
 stages{
-stage('Setup Environment') {
-    steps {
-        sh '''
-            echo "Checking AWS CLI installation..."
-            if ! command -v aws &> /dev/null; then
-                echo "AWS CLI not found. Installing..."
-                curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-                unzip -o awscliv2.zip
-                sudo ./aws/install
-                rm -rf awscliv2.zip aws
-            else
-                echo "AWS CLI already installed. Updating..."
-                sudo ./aws/install --update
-            fi
-
-            # Verify installation
-            aws --version || { echo "❌ AWS CLI installation failed"; exit 1; }
-        '''
-    }
-}
 
         stage('Clone Repository') {
             steps {
