@@ -56,7 +56,7 @@ pipeline {
             steps {
                 sh '''
                 echo "Building Docker Image..."
-                cd to-do-list-practise-main
+                cd todolist
                 docker build -t $DOCKER_IMAGE:$DOCKER_TAG -f Dockerfile .
                 docker tag $DOCKER_IMAGE:$DOCKER_TAG $ECR_REPO:$DOCKER_TAG
                 '''
