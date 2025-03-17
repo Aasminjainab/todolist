@@ -12,29 +12,26 @@ pipeline {
         DOCKER_IMAGE = 'todo-app'
         DOCKER_TAG = 'latest'
     }
+stage('Setup Environment') {
+    steps {
+        sh '''
+            echo "Checking AWS CLI installation..."
+            if ! command -v aws &> /dev/null; then
+                echo "AWS CLI not found. Installing..."
+                curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                unzip -o awscliv2.zip
+                sudo ./aws/install
+                rm -rf awscliv2.zip aws
+            else
+                echo "AWS CLI already installed. Updating..."
+                sudo ./aws/install --update
+            fi
 
-    stages {
-        stage('Setup Environment') {
-            steps {
-                sh '''
-                    echo "Checking and Installing AWS CLI..."
-                    if ! command -v aws &> /dev/null; then
-                        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-                        unzip -o awscliv2.zip
-                        sudo ./aws/install
-                        rm -rf awscliv2.zip aws
-                    else
-                        echo "AWS CLI already installed, updating..."
-                        sudo ./aws/install --update
-                    fi
-
-                    echo "Configuring AWS CLI..."
-                    aws configure set aws_access_key_id YOUR_ACCESS_KEY
-                    aws configure set aws_secret_access_key YOUR_SECRET_KEY
-                    aws configure set region $AWS_REGION
-                '''
-            }
-        }
+            # Verify installation
+            aws --version || { echo "❌ AWS CLI installation failed"; exit 1; }
+        '''
+    }
+}
 
         stage('Clone Repository') {
             steps {
