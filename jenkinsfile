@@ -6,8 +6,8 @@ pipeline {
         AWS_REGION = 'ap-south-1'
         EC2_USER = 'ubuntu'
         EC2_HOST = '35.154.250.112'
-        APP_DIR = '/home/ubuntu/todolist/to-do-list-practise-main'  // ✅ Fixed path
-        GIT_REPO = 'https://github.com/Aasminjainab/todolist.git'
+        APP_DIR = '/home/ubuntu/todolist'  // ✅ Updated path to `todolist`
+        GIT_REPO = 'https://github.com/Aasminjanab/todolist.git'
         ECR_REPO = '043309327282.dkr.ecr.ap-south-1.amazonaws.com/my-todo'
         DOCKER_IMAGE = 'todo-app'
         DOCKER_TAG = 'latest'
@@ -19,16 +19,16 @@ pipeline {
                 withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
                     sh '''
                     echo "Checking if repository already exists..."
-                    if [ -d "to-do-list-practise-main/.git" ]; then
+                    if [ -d "todolist/.git" ]; then
                         echo "Repository exists. Pulling latest changes..."
-                        cd to-do-list-practise-main
-                        git remote set-url origin https://$GITHUB_TOKEN@github.com/Aasminjainab/todolist.git
+                        cd todolist
+                        git remote set-url origin https://$GITHUB_TOKEN@github.com/Aasminjanab/todolist.git
                         git fetch origin main
                         git reset --hard origin/main
                         git pull origin main
                     else
                         echo "Cloning TO-DO LIST repository..."
-                        git clone https://$GITHUB_TOKEN@github.com/Aasminjainab/todolist.git to-do-list-practise-main
+                        git clone https://$GITHUB_TOKEN@github.com/Aasminjanab/todolist.git
                     fi
                     '''
                 }
@@ -39,9 +39,9 @@ pipeline {
             steps {
                 sh '''
                 echo "Running Pylint Checks..."
-                if [ -f to-do-list-practise-main/pylint.sh ]; then
-                    chmod +x to-do-list-practise-main/pylint.sh
-                    ./to-do-list-practise-main/pylint.sh | tee pylint.log || echo "⚠️ Pylint warnings found, review pylint.log."
+                if [ -f todolist/pylint.sh ]; then
+                    chmod +x todolist/pylint.sh
+                    ./todolist/pylint.sh | tee pylint.log || echo "⚠️ Pylint warnings found, review pylint.log."
                 else
                     echo "❌ pylint.sh not found. Skipping pylint checks."
                 fi
@@ -53,8 +53,19 @@ pipeline {
             steps {
                 sh '''
                 echo "Building Docker Image..."
-                cd to-do-list-practise-main  # ✅ Corrected directory
-                docker build -t $DOCKER_IMAGE:$DOCKER_TAG -f Dockerfile .  # ✅ Ensure Dockerfile is here
+                cd todolist  # ✅ Corrected directory
+
+                if [ ! -f Dockerfile ]; then
+                    echo "❌ Dockerfile not found in todolist! Exiting..."
+                    exit 1
+                fi
+                
+                if [ ! -f manage.py ]; then
+                    echo "❌ manage.py not found! Exiting..."
+                    exit 1
+                fi
+
+                docker build -t $DOCKER_IMAGE:$DOCKER_TAG -f Dockerfile .  # ✅ Ensured correct build path
                 docker tag $DOCKER_IMAGE:$DOCKER_TAG $ECR_REPO:$DOCKER_TAG
                 '''
             }
@@ -87,10 +98,10 @@ pipeline {
                     echo "Deploying on EC2..."
                     ssh -tt -o StrictHostKeyChecking=no -i $SSH_KEY $EC2_USER@$EC2_HOST bash -c "
                     set -e
-                    echo 'Checking for existing container...'
+                    echo 'Stopping old container...'
                     docker ps -q --filter 'name=todo-container' | grep -q . && docker stop todo-container && docker rm -f todo-container || echo 'No running container found.'
 
-                    echo 'Checking for processes using port 8000...'
+                    echo 'Killing processes using port 8000...'
                     sudo lsof -ti:8000 | xargs -r sudo kill -9 || echo 'No process found on port 8000.'
 
                     echo 'Pulling latest image from ECR...'
