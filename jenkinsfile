@@ -24,8 +24,14 @@ pipeline {
                         sudo ./aws/install
                         rm -rf awscliv2.zip aws
                     else
-                        echo "AWS CLI already installed."
+                        echo "AWS CLI already installed, updating..."
+                        sudo ./aws/install --update
                     fi
+
+                    echo "Configuring AWS CLI..."
+                    aws configure set aws_access_key_id YOUR_ACCESS_KEY
+                    aws configure set aws_secret_access_key YOUR_SECRET_KEY
+                    aws configure set region $AWS_REGION
                 '''
             }
         }
@@ -40,8 +46,8 @@ pipeline {
                         if [ -d "to-do-list-practise-main/.git" ]; then
                             cd to-do-list-practise-main
                             git remote set-url origin https://$GIT_USER:$GIT_TOKEN@$GIT_REPO
+                            git fetch origin main
                             git reset --hard origin/main
-                            git pull origin main
                         else
                             rm -rf to-do-list-practise-main
                             git clone https://$GIT_USER:$GIT_TOKEN@$GIT_REPO to-do-list-practise-main
@@ -74,7 +80,7 @@ pipeline {
                         aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
 
                         echo "Building Docker Image..."
-                        docker build -t $DOCKER_IMAGE:latest ./to-do-list-practise-main
+                        docker build -t $DOCKER_IMAGE:latest to-do-list-practise-main/
 
                         echo "Tagging Image for ECR..."
                         docker tag $DOCKER_IMAGE:latest $ECR_REPO:$DOCKER_TAG
@@ -91,7 +97,7 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'ubuntu', keyFileVariable: 'SSH_KEY')]) {
                     sh '''
                         echo "Deploying on EC2..."
-                        ssh -tt -o StrictHostKeyChecking=no -i $SSH_KEY $EC2_USER@$EC2_HOST bash -c "
+                        ssh -tt -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -i "$SSH_KEY" $EC2_USER@$EC2_HOST << EOF
                         set -e
                         echo 'Logging into AWS ECR on EC2...'
                         aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
@@ -100,11 +106,12 @@ pipeline {
                         docker pull $ECR_REPO:$DOCKER_TAG
 
                         echo 'Stopping and removing old container...'
-                        docker ps -q --filter 'name=todo-app-container' | grep -q . && docker stop todo-app-container && docker rm -f todo-app-container || echo 'No running container found.'
+                        docker stop todo-app-container || true
+                        docker rm -f todo-app-container || true
 
                         echo 'Running new container...'
                         docker run -d --restart=always -p 8000:8000 --name todo-app-container $ECR_REPO:$DOCKER_TAG
-                        "
+                        EOF
                     '''
                 }
             }
