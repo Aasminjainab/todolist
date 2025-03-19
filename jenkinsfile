@@ -15,6 +15,7 @@ pipeline {
         // 🟢 Clone the Repository
         stage('Clone TO-DO Repository') {
             steps {
+
                 withCredentials([usernamePassword(credentialsId: 'aasmin', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
                     sh '''
                     echo "Checking if repository already exists..."
