@@ -2,10 +2,10 @@ pipeline {
     agent { label 'docker-agent-label' }
 
     environment {
-        AWS_ACCOUNT_ID = '043309327282'
+        AWS_ACCOUNT_ID = '418272779533'
         AWS_REGION = 'ap-south-1'
         EC2_USER = 'ubuntu'
-        EC2_HOST = '35.154.250.112'
+        EC2_HOST = '13.201.53.55'
         APP_DIR = '/home/ubuntu/todolist'  // ✅ Fixed path
         GIT_REPO = 'https://github.com/Aasminjainab/todolist.git'
         ECR_REPO = '043309327282.dkr.ecr.ap-south-1.amazonaws.com/my-todo'
