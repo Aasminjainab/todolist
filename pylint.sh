@@ -17,6 +17,8 @@ fi
 # Navigate to the application directory
 cd "$APP_DIR"
 
+
+
 # Start the application
 echo "🚀 Starting application..."
 nohup $PYTHON_BIN "$APP_FILE" runserver 0.0.0.0:8000 > app.log 2>&1 &
