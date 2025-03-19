@@ -1,94 +1,113 @@
 pipeline {
-    agent { label 'docker-agent-label' }
+    agent { label 'docker-agent-label' } // Ensure this matches your Jenkins agent label
 
     environment {
         AWS_ACCOUNT_ID = '418272779533'
         AWS_REGION = 'ap-south-1'
         EC2_USER = 'ubuntu'
         EC2_HOST = '13.201.53.55'
-        APP_DIR = '/home/ubuntu/todolist'  // ✅ Fixed path
-        GIT_REPO = 'https://github.com/Aasminjainab/todolist.git'
-        ECR_REPO = '043309327282.dkr.ecr.ap-south-1.amazonaws.com/my-todo'
-        DOCKER_IMAGE = 'todo-app'
-        DOCKER_TAG = 'latest'
+        APP_DIR = '/home/ubuntu/jenkins/jenkins/workspace/todo-list_main'
+        ECR_URI = "418272779533.dkr.ecr.ap-south-1.amazonaws.com/aasmin"
+        PYTHON_BIN = '/usr/bin/python3'
     }
-
     stages {
+        // 🟢 Clone the Repository
         stage('Clone TO-DO Repository') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                withCredentials([usernamePassword(credentialsId: 'aasmin', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
                     sh '''
                     echo "Checking if repository already exists..."
-                    if [ -d "todolist/.git" ]; then
+                    if [ -d "django-on-ec2/.git" ]; then
                         echo "Repository exists. Pulling latest changes..."
-                        cd todolist
-                        git remote set-url origin https://$GIT_USER:$GIT_PASS@github.com/Aasminjainab/todolist.git
+                        cd django-on-ec2
+                        git remote set-url origin https://$GIT_USER:$GIT_PASS@github.com/sakethravikanti/django-on-ec2.git
                         git fetch origin main
                         git reset --hard origin/main
                         git pull origin main
                     else
                         echo "Cloning TO-DO LIST repository..."
-                        git clone https://$GIT_USER:$GIT_PASS@github.com/Aasminjainab/todolist.git todolist
+                        git clone -b main https://$GIT_USER:$GIT_PASS@github.com/sakethravikanti/django-on-ec2.git
                     fi
                     '''
                 }
             }
         }
 
+        // 🟢 Run Pylint Checks
         stage('Run Pylint Checks') {
             steps {
                 sh '''
                 echo "Running Pylint Checks..."
-                if [ -f todolist/pylint.sh ]; then
-                    chmod +x todolist/pylint.sh
-                    ./todolist/pylint.sh | tee pylint.log || echo "⚠️ Pylint warnings found, review pylint.log."
+                cd django-on-ec2
+                if [ -f pylint.sh ]; then
+                    chmod +x pylint.sh
+                    ./pylint.sh | tee pylint.log || echo "⚠️ Pylint warnings found, review pylint.log."
                 else
-                    echo "❌ pylint.sh not found. Skipping pylint checks."
+                    echo "❌ pylint.sh not found in todolist. Check file path."
+                    exit 1
                 fi
                 '''
             }
         }
 
+        // 🟢 Build Docker Image
         stage('Build Docker Image') {
             steps {
                 sh '''
                 echo "Building Docker Image..."
-                cd todolist  # ✅ Corrected directory
-                docker build -t $DOCKER_IMAGE:$DOCKER_TAG -f Dockerfile .  # ✅ Ensure Dockerfile is here
-                docker tag $DOCKER_IMAGE:$DOCKER_TAG $ECR_REPO:$DOCKER_TAG
+                cd django-on-ec2
+                export DOCKER_BUILDKIT=0  # ❗️ Disable BuildKit temporarily
+                docker build --no-cache -t todo-app -f Dockerfile .
                 '''
             }
         }
 
+        // 🟢 Fix Docker Permission Issue
+        stage('Fix Docker Permissions') {
+            steps {
+                sh '''
+                echo "Ensuring Docker permissions are correct..."
+                sudo usermod -aG docker $USER || echo "User already part of docker group"
+                sudo chmod 666 /var/run/docker.sock
+                '''
+            }
+        }
+
+        // 🟢 Login to AWS ECR
         stage('Login to AWS ECR') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'aws-credentials', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                withCredentials([string(credentialsId: 'aws-ecr-tuesday', variable: 'AWS_ECR_PASSWORD')]) {
                     sh '''
                     echo "Logging into AWS ECR..."
-                    aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-                    aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-                    aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
+                    aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI
                     '''
                 }
             }
         }
 
+        // 🟢 Push Docker Image to ECR
         stage('Push Docker Image to ECR') {
             steps {
                 sh '''
+                echo "Tagging Docker Image..."
+                docker tag todo-app $ECR_URI:latest
+
                 echo "Pushing Docker Image to AWS ECR..."
-                docker push $ECR_REPO:$DOCKER_TAG
+                docker push $ECR_URI:latest
                 '''
             }
         }
 
+        // 🟢 Deploy to EC2
         stage('Deploy to EC2') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'ec2-credentials', usernameVariable: 'EC2_USERNAME', passwordVariable: 'EC2_PASSWORD')]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ubuntu', keyFileVariable: 'SSH_KEY')]) {
                     sh '''
                     echo "Deploying on EC2..."
-                    sshpass -p "$EC2_PASSWORD" ssh -tt -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST bash -c "
+                    ssh -tt -o StrictHostKeyChecking=no -i $SSH_KEY $EC2_USER@$EC2_HOST bash -c "
                     set -e
+                    cd $APP_DIR
+
                     echo 'Checking for existing container...'
                     docker ps -q --filter 'name=todo-container' | grep -q . && docker stop todo-container && docker rm -f todo-container || echo 'No running container found.'
 
@@ -96,10 +115,10 @@ pipeline {
                     sudo lsof -ti:8000 | xargs -r sudo kill -9 || echo 'No process found on port 8000.'
 
                     echo 'Pulling latest image from ECR...'
-                    docker pull $ECR_REPO:$DOCKER_TAG
+                    docker pull $ECR_URI:latest
 
                     echo 'Running new container...'
-                    docker run -d --restart=always -p 8000:8000 --name todo-container $ECR_REPO:$DOCKER_TAG
+                    docker run -d --restart=always -p 8000:8000 --name todo-container $ECR_URI:latest
                     "
                     '''
                 }
