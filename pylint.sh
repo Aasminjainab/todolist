@@ -4,7 +4,7 @@
 set -euxo pipefail  
 
 # Define variables
-APP_DIR="/home/ubuntu/jenkins/workspace/aasmin_main"  # Correct path
+APP_DIR="/home/ubuntu/jenkins/jenkins/workspace/todo-list_main"  # Correct path
 PYTHON_BIN="/usr/bin/python3"
 APP_FILE="manage.py"  # Update if your main Python file is different
 
