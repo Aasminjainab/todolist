@@ -13,31 +13,27 @@ pipeline {
         DOCKER_TAG = 'latest'
     }
 
-
-
     stages {
         stage('Clone TO-DO Repository') {
             steps {
-                withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+                withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
                     sh '''
                     echo "Checking if repository already exists..."
                     if [ -d "todolist/.git" ]; then
                         echo "Repository exists. Pulling latest changes..."
                         cd todolist
-                        git remote set-url origin https://$GITHUB_TOKEN@github.com/Aasminjainab/todolist.git
+                        git remote set-url origin https://$GIT_USER:$GIT_PASS@github.com/Aasminjainab/todolist.git
                         git fetch origin main
                         git reset --hard origin/main
                         git pull origin main
                     else
                         echo "Cloning TO-DO LIST repository..."
-                        git clone https://$GITHUB_TOKEN@github.com/Aasminjainab/todolist.git todolist
+                        git clone https://$GIT_USER:$GIT_PASS@github.com/Aasminjainab/todolist.git todolist
                     fi
                     '''
                 }
             }
-
         }
-
 
         stage('Run Pylint Checks') {
             steps {
@@ -66,9 +62,11 @@ pipeline {
 
         stage('Login to AWS ECR') {
             steps {
-                withCredentials([string(credentialsId: 'aws-ecrtoken', variable: 'AWS_ECR_PASSWORD')]) {
+                withCredentials([usernamePassword(credentialsId: 'aws-credentials', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
                     echo "Logging into AWS ECR..."
+                    aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+                    aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
                     aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
                     '''
                 }
@@ -84,14 +82,12 @@ pipeline {
             }
         }
 
-
-
         stage('Deploy to EC2') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                withCredentials([usernamePassword(credentialsId: 'ec2-credentials', usernameVariable: 'EC2_USERNAME', passwordVariable: 'EC2_PASSWORD')]) {
                     sh '''
                     echo "Deploying on EC2..."
-                    ssh -tt -o StrictHostKeyChecking=no -i $SSH_KEY $EC2_USER@$EC2_HOST bash -c "
+                    sshpass -p "$EC2_PASSWORD" ssh -tt -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST bash -c "
                     set -e
                     echo 'Checking for existing container...'
                     docker ps -q --filter 'name=todo-container' | grep -q . && docker stop todo-container && docker rm -f todo-container || echo 'No running container found.'
