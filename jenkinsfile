@@ -11,7 +11,6 @@ pipeline {
         PYTHON_BIN = '/usr/bin/python3'  // ✅ Python binary
     }
 
-
     stages {
         // 🟢 Clone the Repository
         stage('Clone TO-DO Repository') {
