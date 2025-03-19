@@ -6,10 +6,11 @@ pipeline {
         AWS_REGION = 'ap-south-1'
         EC2_USER = 'ubuntu'
         EC2_HOST = '13.201.53.55'
-        APP_DIR = '/home/ubuntu/jenkins/jenkins/workspace/todo-list_main'
-        ECR_URI = "418272779533.dkr.ecr.ap-south-1.amazonaws.com/aasmin"
-        PYTHON_BIN = '/usr/bin/python3'
+        APP_DIR = '/home/ubuntu/jenkins/jenkins/workspace/todo-list_main' // ✅ Corrected App Directory
+        ECR_URI = "418272779533.dkr.ecr.ap-south-1.amazonaws.com/aasmin"   // ✅ AWS ECR Repository URI
+        PYTHON_BIN = '/usr/bin/python3'  // ✅ Python binary
     }
+
     stages {
         // 🟢 Clone the Repository
         stage('Clone TO-DO Repository') {
@@ -17,16 +18,16 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'aasmin', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
                     sh '''
                     echo "Checking if repository already exists..."
-                    if [ -d "django-on-ec2/.git" ]; then
+                    if [ -d "todolist/.git" ]; then
                         echo "Repository exists. Pulling latest changes..."
-                        cd django-on-ec2
-                        git remote set-url origin https://$GIT_USER:$GIT_PASS@github.com/sakethravikanti/django-on-ec2.git
+                        cd todolist
+                        git remote set-url origin https://$GIT_USER:$GIT_PASS@github.com/Aasminjainab/todolist.git
                         git fetch origin main
                         git reset --hard origin/main
                         git pull origin main
                     else
                         echo "Cloning TO-DO LIST repository..."
-                        git clone -b main https://$GIT_USER:$GIT_PASS@github.com/sakethravikanti/django-on-ec2.git
+                        git clone -b main https://$GIT_USER:$GIT_PASS@github.com/Aasminjainab/todolist.git
                     fi
                     '''
                 }
@@ -38,7 +39,7 @@ pipeline {
             steps {
                 sh '''
                 echo "Running Pylint Checks..."
-                cd django-on-ec2
+                cd todolist
                 if [ -f pylint.sh ]; then
                     chmod +x pylint.sh
                     ./pylint.sh | tee pylint.log || echo "⚠️ Pylint warnings found, review pylint.log."
@@ -55,7 +56,7 @@ pipeline {
             steps {
                 sh '''
                 echo "Building Docker Image..."
-                cd django-on-ec2
+                cd todolist
                 export DOCKER_BUILDKIT=0  # ❗️ Disable BuildKit temporarily
                 docker build --no-cache -t todo-app -f Dockerfile .
                 '''
@@ -101,7 +102,7 @@ pipeline {
         // 🟢 Deploy to EC2
         stage('Deploy to EC2') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'ubuntu', keyFileVariable: 'SSH_KEY')]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ubuntu', keyFileVariable: 'SSH_KEY')]) {  // ✅ Updated SSH Agent ID
                     sh '''
                     echo "Deploying on EC2..."
                     ssh -tt -o StrictHostKeyChecking=no -i $SSH_KEY $EC2_USER@$EC2_HOST bash -c "
